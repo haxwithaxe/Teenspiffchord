@@ -1,5 +1,3 @@
-//#include <Versalino.h>
-
 // teenspiffchord v1 
 // - reinvented spiffchorder
 // - ment for teensy 2.0 (atmega32u4) but might work on others
@@ -26,17 +24,14 @@ Bounce button4 = Bounce(BUTTON_N, DEBOUNCE_TIMEOUT);
 Bounce button5 = Bounce(BUTTON_C, DEBOUNCE_TIMEOUT);
 Bounce button6 = Bounce(BUTTON_F, DEBOUNCE_TIMEOUT);
 
-unsigned long presstime;
+unsigned long press_time;
 boolean pressed;
-int chordvalue;
-int keymapmode;
-int pressedkey;
-int shiftmode;
-int buttonsheld;
-int dhtinit;
-float dhthumidity;
-float dhttemperature;
-int currentmodifier;
+int chord_value;
+int keymap_mode;
+int pressed_key;
+int shift_mode;
+int buttons_held;
+int current_modifier;
 
 #define FUNCTION_MODE 1
 #define NUMBER_MODE 2
@@ -44,7 +39,7 @@ int currentmodifier;
 
 #define SHIFT 1
 
-int getkey(int value, int keymap) {
+int get_key(int value, int keymap) {
   int key;
   if (keymap == FUNCTION_MODE) {
     key = keymap_function[value];
@@ -56,42 +51,42 @@ int getkey(int value, int keymap) {
  return key;
 }
 
-void processchord(int value) {
+void process_chord(int value) {
 
-  pressedkey = getkey(value,keymapmode);
+  pressed_key = get_key(value, keymap_mode);
       
-  if (pressedkey == MODE_FUNC) {
+  if (pressed_key == MODE_FUNC) {
     // set function mode
-    keymapmode = FUNCTION_MODE;
-  } else if (pressedkey == MODE_NUM) {
+    keymap_mode = FUNCTION_MODE;
+  } else if (pressed_key == MODE_NUM) {
     // set number mode
-    keymapmode = NUMBER_MODE;
-  } else if (pressedkey == MODE_RESET) {
+    keymap_mode = NUMBER_MODE;
+  } else if (pressed_key == MODE_RESET) {
     // set mode back to default mode
-    keymapmode = DEFAULT_MODE;
-  } else if (pressedkey == SHIFTMODE) {
+    keymap_mode = DEFAULT_MODE;
+  } else if (pressed_key == shift_mode) {
     // pressed shift
-    shiftmode = SHIFT;
-    currentmodifier = (currentmodifier | MODIFIERKEY_SHIFT);
-  } else if (pressedkey == ALTSHIFTMODE) {
+    shift_mode = SHIFT;
+    current_modifier = (current_modifier | MODIFIERKEY_SHIFT);
+  } else if (pressed_key == ALTSHIFTMODE) {
     // pressed alt
-    shiftmode = SHIFT;
-    currentmodifier = (currentmodifier | MODIFIERKEY_ALT);
-  } else if (pressedkey == CTRLSHIFTMODE) {
+    shift_mode = SHIFT;
+    current_modifier = (current_modifier | MODIFIERKEY_ALT);
+  } else if (pressed_key == CTRLSHIFTMODE) {
     // pressed ctrl
-    shiftmode = SHIFT;
-    currentmodifier = (currentmodifier | MODIFIERKEY_CTRL);
-  } else if (pressedkey == NUMSHIFTMODE) {
-    // pressed numshiftmode ( N+C )
-    shiftmode = SHIFT;
-    currentmodifier = (currentmodifier | MODIFIERKEY_SHIFT);
-    keymapmode = NUMBER_MODE;
-  } else if (pressedkey == MACRO_quotes) {
-    if (shiftmode) {
-      Keyboard.set_modifier(currentmodifier);
+    shift_mode = SHIFT;
+    current_modifier = (current_modifier | MODIFIERKEY_CTRL);
+  } else if (pressed_key == NUMSHIFTMODE) {
+    // pressed numshift_mode ( N+C )
+    shift_mode = SHIFT;
+    current_modifier = (current_modifier | MODIFIERKEY_SHIFT);
+    keymap_mode = NUMBER_MODE;
+  } else if (pressed_key == MACRO_quotes) {
+    if (shift_mode) {
+      Keyboard.set_modifier(current_modifier);
       Keyboard.send_now();
-      shiftmode = 0;
-      currentmodifier = 0;
+      shift_mode = 0;
+      current_modifier = 0;
     }
     Keyboard.set_key1(KEY_QUOTE);
     Keyboard.set_key2(KEY_QUOTE);
@@ -99,7 +94,7 @@ void processchord(int value) {
     Keyboard.send_now();
 
     delay(10);
-    releasekeys();
+    released_keys();
         
 // #define MACRO_00 144
 // #define MACRO_000 145
@@ -108,22 +103,21 @@ void processchord(int value) {
   } else {
     // normal chord, just print the output :D
 
-    if (shiftmode) {
-      Keyboard.set_modifier(currentmodifier);
+    if (shift_mode) {
+      Keyboard.set_modifier(current_modifier);
       Keyboard.send_now();
-      shiftmode = 0;
-      currentmodifier = 0;
+      shift_mode = 0;
+      current_modifier = 0;
     }
-    Keyboard.set_key1(pressedkey);
+    Keyboard.set_key1(pressed_key);
     Keyboard.send_now();
     delay(10);
-    releasekeys();
-    keymapmode = DEFAULT_MODE;
+    released_keys();
+    keymap_mode = DEFAULT_MODE;
   }
-  return;
 }
 
-void releasekeys() {
+void released_keys() {
   Keyboard.set_modifier(0);
   Keyboard.set_key1(0);
   Keyboard.set_key2(0);
@@ -132,8 +126,6 @@ void releasekeys() {
   Keyboard.set_key5(0);
   Keyboard.set_key6(0);
   Keyboard.send_now();
-
-  return;
 }
 
 void setup() {
@@ -146,7 +138,6 @@ void setup() {
   pinMode(BUTTON_R, INPUT_PULLUP);
   pinMode(BUTTON_P, INPUT_PULLUP);
   pinMode(LEDPIN, OUTPUT);
-  
 }
 
 void loop() {
@@ -159,94 +150,94 @@ void loop() {
   button6.update();
 
   if (!pressed) { 
-    if (chordvalue) { 
-      releasekeys(); 
+    if (chord_value) { 
+      released_keys(); 
     }
-    chordvalue = 0; 
-    buttonsheld = 0; 
+    chord_value = 0; 
+    buttons_held = 0; 
     digitalWrite(LEDPIN, LOW);
   }
 
   if (button0.fallingEdge()) {
     if (!pressed) {
       pressed=true;
-      presstime=millis();
+      press_time=millis();
     }
-    buttonsheld++;
-    chordvalue += 1;
+    buttons_held++;
+    chord_value += 1;
   }
   if (button1.fallingEdge()) {
     if (!pressed) {
       pressed=true;
-      presstime=millis();
+      press_time=millis();
     }
-    buttonsheld++;
-    chordvalue += 2;
+    buttons_held++;
+    chord_value += 2;
   }
   if (button2.fallingEdge()) {
     if (!pressed) {
       pressed=true;
-      presstime=millis();
+      press_time=millis();
     }
-    buttonsheld++;
-    chordvalue += 4;
+    buttons_held++;
+    chord_value += 4;
   }
   if (button3.fallingEdge()) {
     if (!pressed) {
       pressed=true;
-      presstime=millis();
+      press_time=millis();
     }
-    buttonsheld++;
-    chordvalue += 8;
+    buttons_held++;
+    chord_value += 8;
   }
   if (button4.fallingEdge()) {
     if (!pressed) {
       pressed=true;
-      presstime=millis();
+      press_time=millis();
     }
-    buttonsheld++;
-    chordvalue += 16;
+    buttons_held++;
+    chord_value += 16;
   }
   if (button5.fallingEdge()) {
     if (!pressed) {
       pressed=true;
-      presstime=millis();
+      press_time=millis();
     }
-    buttonsheld++;
-    chordvalue += 32;
+    buttons_held++;
+    chord_value += 32;
   }
   if (button6.fallingEdge()) {
     if (!pressed) {
       pressed=true;
-      presstime=millis();
+      press_time=millis();
     }
-    buttonsheld++;
-    chordvalue += 64;
+    buttons_held++;
+    chord_value += 64;
   }
 
   if (button0.risingEdge()) {
-    buttonsheld--;
+    buttons_held--;
   }
   if (button1.risingEdge()) {
-    buttonsheld--;
+    buttons_held--;
   }
   if (button2.risingEdge()) {
-    buttonsheld--;
+    buttons_held--;
   }
   if (button3.risingEdge()) {
-    buttonsheld--;
+    buttons_held--;
   }
   if (button4.risingEdge()) {
-    buttonsheld--;
+    buttons_held--;
   }
   if (button5.risingEdge()) {
-    buttonsheld--;
+    buttons_held--;
   }
   if (button6.risingEdge()) {
-    buttonsheld--;
+    buttons_held--;
   }
   
-  if (buttonsheld == 0) {
+  if (buttons_held == 0) {
     pressed = false;
   }
 
@@ -254,15 +245,13 @@ void loop() {
     digitalWrite(LEDPIN, HIGH);
   }
 
-  if (chordvalue) {
-    if ((presstime + TYPETIME) < millis()) {
-      processchord(chordvalue); 
-//      pressed = false;      
-    } else if (buttonsheld == 0) {
-      processchord(chordvalue);
+  if (chord_value) {
+    if ((press_time + TYPETIME) < millis()) {
+      process_chord(chord_value); 
+    } else if (buttons_held == 0) {
+      process_chord(chord_value);
       pressed = false;      
     }
   }
-
 }
 

@@ -33,9 +33,6 @@ int keymapmode;
 int pressedkey;
 int shiftmode;
 int buttonsheld;
-int dhtinit;
-float dhthumidity;
-float dhttemperature;
 int currentmodifier;
 
 #define FUNCTION_MODE 1
@@ -55,6 +52,55 @@ int getkey(int value, int keymap) {
   }
  return key;
 }
+
+
+void macro(int key1, int key2, int key3, int key4, int key5, int key6) {
+    if (shiftmode) {
+      Keyboard.set_modifier(currentmodifier);
+      Keyboard.send_now();
+      shiftmode = 0;
+      currentmodifier = 0;
+    }
+	if (key1 > 0) {
+    Keyboard.set_key1(key1);
+	}
+	if (key2 > 0) {
+    Keyboard.set_key2(key2);
+	}
+	if (key3 > 0) {
+    Keyboard.set_key3(key3);
+	}
+	if (key4 > 0) {
+    Keyboard.set_key4(key4);
+	}
+	if (key5 > 0) {
+    Keyboard.set_key5(key3);
+	}
+	if (key6 > 0) {
+    Keyboard.set_key6(key3);
+	}
+    Keyboard.send_now();
+
+    delay(10);
+    releasekeys();
+}
+
+void macro(int key1, int key2) {
+	macro(key1, key2, KEY__, KEY__, KEY__, KEY__);
+}
+
+void macro(int key1, int key2, int key3) {
+	macro(key1, key2, key3, KEY__, KEY__, KEY__);
+}
+
+void macro(int key1, int key2, int key3, int key4) {
+	macro(key1, key2, key3, key4, KEY__, KEY__);
+}
+
+void macro(int key1, int key2, int key3, int key4, int key5) {
+	macro(key1, key2, key3, key4, key5, KEY__);
+}
+
 
 void processchord(int value) {
 
@@ -257,7 +303,6 @@ void loop() {
   if (chordvalue) {
     if ((presstime + TYPETIME) < millis()) {
       processchord(chordvalue); 
-//      pressed = false;      
     } else if (buttonsheld == 0) {
       processchord(chordvalue);
       pressed = false;      

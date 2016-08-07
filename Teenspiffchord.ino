@@ -1,257 +1,378 @@
-// teenspiffchord v1 
+// teenspiffchord v2
 // - reinvented spiffchorder
-// - ment for teensy 2.0 (atmega32u4) but might work on others
+// - redesigned for teensy 3.2 original worked on teensy 2.0
 
 #include <Bounce.h>
 #include "nasa_us.h"
 
-#define DEBOUNCE_TIMEOUT 10
-#define TYPETIME 500          // 500 for noooooobs
-#define BUTTON_F 4
-#define BUTTON_C 3
-#define BUTTON_N 2
-#define BUTTON_I 14
-#define BUTTON_M 15
-#define BUTTON_R 16
-#define BUTTON_P 17
-#define LEDPIN 13
+/* uncomment to enable debug output
+#define DEBUG
+*/
 
-Bounce button0 = Bounce(BUTTON_P, DEBOUNCE_TIMEOUT);
-Bounce button1 = Bounce(BUTTON_R, DEBOUNCE_TIMEOUT);
-Bounce button2 = Bounce(BUTTON_M, DEBOUNCE_TIMEOUT);
-Bounce button3 = Bounce(BUTTON_I, DEBOUNCE_TIMEOUT);
-Bounce button4 = Bounce(BUTTON_N, DEBOUNCE_TIMEOUT);
-Bounce button5 = Bounce(BUTTON_C, DEBOUNCE_TIMEOUT);
-Bounce button6 = Bounce(BUTTON_F, DEBOUNCE_TIMEOUT);
-
-unsigned long press_time;
-boolean pressed;
-int chord_value;
-int keymap_mode;
-int pressed_key;
-int shift_mode;
-int buttons_held;
-int current_modifier;
-
+// Magic keyboard numbers
 #define FUNCTION_MODE 1
 #define NUMBER_MODE 2
 #define DEFAULT_MODE 3
-
 #define SHIFT 1
 
-int get_key(int value, int keymap) {
-  int key;
-  if (keymap == FUNCTION_MODE) {
-    key = keymap_function[value];
-  } else if (keymap == NUMBER_MODE) {
-    key = keymap_numsym[value];
-  } else {
-    key = keymap_default[value];
-  }
- return key;
+// Debounce interval
+#define DEBOUNCE_TIMEOUT 10
+
+// Time to wait before assuming the chord has been completely pressed.
+#define TYPETIME 50
+
+// Pins
+#define BUTTON_F 2
+#define BUTTON_C 3
+#define BUTTON_N 4
+#define BUTTON_I 15
+#define BUTTON_M 16
+#define BUTTON_R 17
+#define BUTTON_P 18
+#define LEDPIN 13
+
+
+unsigned long presstime;
+boolean pressed;
+int chordvalue;
+int last_chordvalue = 0;
+int keymapmode;
+int pressedkey;
+int shiftmode;
+int buttonsheld;
+int last_buttonsheld = 0;
+int currentmodifier;
+bool repeat_mode = false;
+
+Bounce button_p = Bounce(BUTTON_P, DEBOUNCE_TIMEOUT);
+Bounce button_r = Bounce(BUTTON_R, DEBOUNCE_TIMEOUT);
+Bounce button_m = Bounce(BUTTON_M, DEBOUNCE_TIMEOUT);
+Bounce button_i = Bounce(BUTTON_I, DEBOUNCE_TIMEOUT);
+Bounce button_n = Bounce(BUTTON_N, DEBOUNCE_TIMEOUT);
+Bounce button_c = Bounce(BUTTON_C, DEBOUNCE_TIMEOUT);
+Bounce button_f = Bounce(BUTTON_F, DEBOUNCE_TIMEOUT);
+
+
+void debug(char*name) {
+#ifdef DEBUG
+	Serial.print(String(name));
+	Serial.print(": "+String(pressed));
+	Serial.print(", buttonsheld = "+String(buttonsheld, DEC));
+	Serial.print(", last buttonsheld = "+String(last_buttonsheld, DEC));
+	Serial.print(", chordvalue = "+String(chordvalue, DEC));
+	Serial.print(", last_chordvalue = "+String(last_chordvalue, DEC));
+	Serial.println();
+#endif
 }
 
-void process_chord(int value) {
+/*
+   Bypass checks if in repeat mode for rapid 
+   keypresses while holing down keys
 
-  pressed_key = get_key(value, keymap_mode);
+   repeat mode not implemented but the bypasses required are in place.
+ */
+bool in_repeat_mode(bool condition) {
+	if (repeat_mode) return true;
+	return condition;
+}
+
+int getkey(int value, int keymap) {
+	int key;
+	if (keymap == FUNCTION_MODE) {
+		key = keymap_function[value];
+	} else if (keymap == NUMBER_MODE) {
+		key = keymap_numsym[value];
+	} else {
+		key = keymap_default[value];
+	}
+	return key;
+}
+
+void handle_shiftmode() {
+    if (shiftmode) {
+      Keyboard.set_modifier(currentmodifier);
+      Keyboard.send_now();
+      shiftmode = 0;
+      currentmodifier = 0;
+    }
+}
+
+void macro(int key1, int key2, int key3, int key4, int key5, int key6) {
+	
+	handle_shiftmode();
+
+	if (key1 > 0) {
+		Keyboard.set_key1(key1);
+	}
+	if (key2 > 0) {
+		Keyboard.set_key2(key2);
+	}
+	if (key3 > 0) {
+		Keyboard.set_key3(key3);
+	}
+	if (key4 > 0) {
+		Keyboard.set_key4(key4);
+	}
+	if (key5 > 0) {
+		Keyboard.set_key5(key3);
+	}
+	if (key6 > 0) {
+		Keyboard.set_key6(key3);
+	}
+    Keyboard.send_now();
+
+    delay(10);
+    releasekeys();
+}
+
+void send_key(int key) {
+	macro(key, KEY__, KEY__, KEY__, KEY__, KEY__);
+}
+
+void macro(int key1, int key2) {
+	macro(key1, key2, KEY__, KEY__, KEY__, KEY__);
+}
+
+void macro(int key1, int key2, int key3) {
+	macro(key1, key2, key3, KEY__, KEY__, KEY__);
+}
+
+void macro(int key1, int key2, int key3, int key4) {
+	macro(key1, key2, key3, key4, KEY__, KEY__);
+}
+
+void macro(int key1, int key2, int key3, int key4, int key5) {
+	macro(key1, key2, key3, key4, key5, KEY__);
+}
+
+
+void processchord(int value) {
+
+  pressedkey = getkey(value,keymapmode);
       
-  if (pressed_key == MODE_FUNC) {
-    // set function mode
-    keymap_mode = FUNCTION_MODE;
-  } else if (pressed_key == MODE_NUM) {
-    // set number mode
-    keymap_mode = NUMBER_MODE;
-  } else if (pressed_key == MODE_RESET) {
-    // set mode back to default mode
-    keymap_mode = DEFAULT_MODE;
-  } else if (pressed_key == shift_mode) {
-    // pressed shift
-    shift_mode = SHIFT;
-    current_modifier = (current_modifier | MODIFIERKEY_SHIFT);
-  } else if (pressed_key == ALTSHIFTMODE) {
-    // pressed alt
-    shift_mode = SHIFT;
-    current_modifier = (current_modifier | MODIFIERKEY_ALT);
-  } else if (pressed_key == CTRLSHIFTMODE) {
-    // pressed ctrl
-    shift_mode = SHIFT;
-    current_modifier = (current_modifier | MODIFIERKEY_CTRL);
-  } else if (pressed_key == NUMSHIFTMODE) {
-    // pressed numshift_mode ( N+C )
-    shift_mode = SHIFT;
-    current_modifier = (current_modifier | MODIFIERKEY_SHIFT);
-    keymap_mode = NUMBER_MODE;
-  } else if (pressed_key == MACRO_quotes) {
-    if (shift_mode) {
-      Keyboard.set_modifier(current_modifier);
-      Keyboard.send_now();
-      shift_mode = 0;
-      current_modifier = 0;
-    }
-    Keyboard.set_key1(KEY_QUOTE);
-    Keyboard.set_key2(KEY_QUOTE);
-    Keyboard.set_key3(KEY_LEFT);
-    Keyboard.send_now();
+	switch (pressedkey) {
 
-    delay(10);
-    released_keys();
-        
-// #define MACRO_00 144
-// #define MACRO_000 145
-// #define MACRO_parens 146
+		case MODE_FUNC:
+			// set function mode
+			keymapmode = FUNCTION_MODE;
+			break;
 
-  } else {
-    // normal chord, just print the output :D
+		case  MODE_NUM:
+			// set number mode
+			keymapmode = NUMBER_MODE;
+			break;
 
-    if (shift_mode) {
-      Keyboard.set_modifier(current_modifier);
-      Keyboard.send_now();
-      shift_mode = 0;
-      current_modifier = 0;
-    }
-    Keyboard.set_key1(pressed_key);
-    Keyboard.send_now();
-    delay(10);
-    released_keys();
-    keymap_mode = DEFAULT_MODE;
-  }
+		case  MODE_RESET:
+			// set mode back to default mode
+			keymapmode = DEFAULT_MODE;
+			break;
+
+		case  SHIFTMODE:
+			// pressed shift
+			shiftmode = SHIFT;
+			currentmodifier = (currentmodifier | MODIFIERKEY_SHIFT);
+			break;
+
+		case  ALTSHIFTMODE:
+			// pressed alt
+			shiftmode = SHIFT;
+			currentmodifier = (currentmodifier | MODIFIERKEY_ALT);
+			break;
+
+		case  CTRLSHIFTMODE:
+			// pressed ctrl
+			shiftmode = SHIFT;
+			currentmodifier = (currentmodifier | MODIFIERKEY_CTRL);
+			break;
+
+		case  NUMSHIFTMODE:
+			// pressed numshiftmode ( N+C )
+			shiftmode = SHIFT;
+			currentmodifier = (currentmodifier | MODIFIERKEY_SHIFT);
+			keymapmode = NUMBER_MODE;
+			break;
+
+		case  MACRO_quotes:
+			macro(KEY_QUOTE, KEY_QUOTE, KEY_LEFT);
+			break;
+
+		case  MACRO_00:
+			macro(KEY_0, KEY_0);
+			break;
+
+		case MACRO_000:
+			macro(KEY_0, KEY_0, KEY_0);
+			break;
+
+		case  MACRO_parens:
+			shiftmode = SHIFT;
+			macro(KEY_9, KEY_0);
+			send_key(KEY_LEFT);
+			break;
+
+		default:
+			// Normal chord, just print the output :D
+			send_key(pressedkey);
+			keymapmode = DEFAULT_MODE;
+			break;
+
+	}
 }
 
-void released_keys() {
-  Keyboard.set_modifier(0);
-  Keyboard.set_key1(0);
-  Keyboard.set_key2(0);
-  Keyboard.set_key3(0);
-  Keyboard.set_key4(0);
-  Keyboard.set_key5(0);
-  Keyboard.set_key6(0);
-  Keyboard.send_now();
+void releasekeys() {
+	Keyboard.set_modifier(0);
+	Keyboard.set_key1(0);
+	Keyboard.set_key2(0);
+	Keyboard.set_key3(0);
+	Keyboard.set_key4(0);
+	Keyboard.set_key5(0);
+	Keyboard.set_key6(0);
+	Keyboard.send_now();
 }
+
 
 void setup() {
-  pinMode(0, INPUT_PULLUP);
-  pinMode(BUTTON_F, INPUT_PULLUP);
-  pinMode(BUTTON_C, INPUT_PULLUP);
-  pinMode(BUTTON_N, INPUT_PULLUP);
-  pinMode(BUTTON_I, INPUT_PULLUP);
-  pinMode(BUTTON_M, INPUT_PULLUP);
-  pinMode(BUTTON_R, INPUT_PULLUP);
-  pinMode(BUTTON_P, INPUT_PULLUP);
-  pinMode(LEDPIN, OUTPUT);
+
+	Serial.begin(9600);
+	pinMode(LEDPIN, OUTPUT);
+
+	pinMode(0, INPUT_PULLUP);
+
+	pinMode(BUTTON_F, INPUT_PULLUP);
+	pinMode(BUTTON_C, INPUT_PULLUP);
+	pinMode(BUTTON_N, INPUT_PULLUP);
+	pinMode(BUTTON_I, INPUT_PULLUP);
+	pinMode(BUTTON_M, INPUT_PULLUP);
+	pinMode(BUTTON_R, INPUT_PULLUP);
+	pinMode(BUTTON_P, INPUT_PULLUP);
 }
 
+
 void loop() {
-  button0.update();
-  button1.update();
-  button2.update();
-  button3.update();
-  button4.update();
-  button5.update();
-  button6.update();
+	button_p.update();
+	button_r.update();
+	button_m.update();
+	button_i.update();
+	button_n.update();
+	button_c.update();
+	button_f.update();
 
-  if (!pressed) { 
-    if (chord_value) { 
-      released_keys(); 
-    }
-    chord_value = 0; 
-    buttons_held = 0; 
-    digitalWrite(LEDPIN, LOW);
-  }
+	if (!pressed) { 
+		if (chordvalue) { 
+			releasekeys(); 
+		}
+		digitalWrite(LEDPIN, LOW);
+	}
+	buttonsheld = 0; 
+	chordvalue = 0; 
 
-  if (button0.fallingEdge()) {
-    if (!pressed) {
-      pressed=true;
-      press_time=millis();
-    }
-    buttons_held++;
-    chord_value += 1;
-  }
-  if (button1.fallingEdge()) {
-    if (!pressed) {
-      pressed=true;
-      press_time=millis();
-    }
-    buttons_held++;
-    chord_value += 2;
-  }
-  if (button2.fallingEdge()) {
-    if (!pressed) {
-      pressed=true;
-      press_time=millis();
-    }
-    buttons_held++;
-    chord_value += 4;
-  }
-  if (button3.fallingEdge()) {
-    if (!pressed) {
-      pressed=true;
-      press_time=millis();
-    }
-    buttons_held++;
-    chord_value += 8;
-  }
-  if (button4.fallingEdge()) {
-    if (!pressed) {
-      pressed=true;
-      press_time=millis();
-    }
-    buttons_held++;
-    chord_value += 16;
-  }
-  if (button5.fallingEdge()) {
-    if (!pressed) {
-      pressed=true;
-      press_time=millis();
-    }
-    buttons_held++;
-    chord_value += 32;
-  }
-  if (button6.fallingEdge()) {
-    if (!pressed) {
-      pressed=true;
-      press_time=millis();
-    }
-    buttons_held++;
-    chord_value += 64;
-  }
+	// Track the buttons that are currently pressed.
+	if (button_p.read() == LOW) {
+		pressed=true;
+		buttonsheld++;
+		chordvalue += 1;
+	}
 
-  if (button0.risingEdge()) {
-    buttons_held--;
-  }
-  if (button1.risingEdge()) {
-    buttons_held--;
-  }
-  if (button2.risingEdge()) {
-    buttons_held--;
-  }
-  if (button3.risingEdge()) {
-    buttons_held--;
-  }
-  if (button4.risingEdge()) {
-    buttons_held--;
-  }
-  if (button5.risingEdge()) {
-    buttons_held--;
-  }
-  if (button6.risingEdge()) {
-    buttons_held--;
-  }
-  
-  if (buttons_held == 0) {
-    pressed = false;
-  }
+	if (button_r.read() == LOW) {
+		pressed=true;
+		buttonsheld++;
+		chordvalue += 2;
+	}
 
-  if (pressed) {
-    digitalWrite(LEDPIN, HIGH);
-  }
+	if (button_m.read() == LOW) {
+		pressed=true;
+		buttonsheld++;
+		chordvalue += 4;
+	}
 
-  if (chord_value) {
-    if ((press_time + TYPETIME) < millis()) {
-      process_chord(chord_value); 
-    } else if (buttons_held == 0) {
-      process_chord(chord_value);
-      pressed = false;      
-    }
-  }
+	if (button_i.read() == LOW) {
+		pressed=true;
+		buttonsheld++;
+		chordvalue += 8;
+	}
+
+	if (button_n.read() == LOW) {
+		pressed=true;
+		buttonsheld++;
+		chordvalue += 16;
+	}
+
+	if (button_c.read() == LOW) {
+		pressed=true;
+		buttonsheld++;
+		chordvalue += 32;
+	}
+
+	if (button_f.read() == LOW) {
+		pressed=true;
+		buttonsheld++;
+		chordvalue += 64;
+	}
+	
+	// Start the timer for any new keypress.
+	if (button_p.fallingEdge()) {
+			debug("+ pinky");
+			presstime=millis();
+	}
+
+	if (button_r.fallingEdge()) {
+			debug("+ ring");
+			presstime=millis();
+	}
+
+	if (button_m.fallingEdge()) {
+			debug("+ middle");
+			presstime=millis();
+	}
+
+	if (button_i.fallingEdge()) {
+			debug("+ index");
+			presstime=millis();
+	}
+
+	if (button_n.fallingEdge()) {
+			debug("+ near");
+			presstime=millis();
+	}
+
+	if (button_c.fallingEdge()) {
+			debug("+ center");
+			presstime=millis();
+	}
+
+	if (button_f.fallingEdge()) {
+			debug("+ far");
+			presstime=millis();
+	}
+
+	if (buttonsheld == 0) {
+		pressed = false;
+		last_chordvalue = 0;
+	}
+
+	if (pressed) {
+		digitalWrite(LEDPIN, HIGH);
+	}
+
+	if (chordvalue) {
+		bool is_new_chordvalue;
+		if (chordvalue > last_chordvalue) {
+			is_new_chordvalue = true;
+		} else {
+			is_new_chordvalue = false;
+			last_buttonsheld = buttonsheld;
+			last_chordvalue = chordvalue;
+		}
+
+		if ((presstime + TYPETIME) < millis() &&  in_repeat_mode(is_new_chordvalue)) {
+			processchord(chordvalue);
+			last_chordvalue = chordvalue;
+			last_buttonsheld = buttonsheld;
+		} else if (buttonsheld == 0) {
+			processchord(chordvalue);
+			pressed = false;
+			last_chordvalue = 0;
+		}
+	}
 }
 

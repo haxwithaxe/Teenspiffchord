@@ -18,13 +18,13 @@
 #define BUTTON_P 17
 #define LEDPIN 13
 
-Bounce button0 = Bounce(BUTTON_P, DEBOUNCE_TIMEOUT);
-Bounce button1 = Bounce(BUTTON_R, DEBOUNCE_TIMEOUT);
-Bounce button2 = Bounce(BUTTON_M, DEBOUNCE_TIMEOUT);
-Bounce button3 = Bounce(BUTTON_I, DEBOUNCE_TIMEOUT);
-Bounce button4 = Bounce(BUTTON_N, DEBOUNCE_TIMEOUT);
-Bounce button5 = Bounce(BUTTON_C, DEBOUNCE_TIMEOUT);
-Bounce button6 = Bounce(BUTTON_F, DEBOUNCE_TIMEOUT);
+Bounce button_p = Bounce(BUTTON_P, DEBOUNCE_TIMEOUT);
+Bounce button_r = Bounce(BUTTON_R, DEBOUNCE_TIMEOUT);
+Bounce button_m = Bounce(BUTTON_M, DEBOUNCE_TIMEOUT);
+Bounce button_i = Bounce(BUTTON_I, DEBOUNCE_TIMEOUT);
+Bounce button_n = Bounce(BUTTON_N, DEBOUNCE_TIMEOUT);
+Bounce button_c = Bounce(BUTTON_C, DEBOUNCE_TIMEOUT);
+Bounce button_f = Bounce(BUTTON_F, DEBOUNCE_TIMEOUT);
 
 unsigned long presstime;
 boolean pressed;
@@ -183,6 +183,7 @@ void releasekeys() {
 }
 
 void setup() {
+	Serial.begin(9600);
 	pinMode(0, INPUT_PULLUP);
 	pinMode(BUTTON_F, INPUT_PULLUP);
 	pinMode(BUTTON_C, INPUT_PULLUP);
@@ -195,13 +196,13 @@ void setup() {
 }
 
 void loop() {
-	button0.update();
-	button1.update();
-	button2.update();
-	button3.update();
-	button4.update();
-	button5.update();
-	button6.update();
+	button_p.update();
+	button_r.update();
+	button_m.update();
+	button_i.update();
+	button_n.update();
+	button_c.update();
+	button_f.update();
 
 	if (!pressed) { 
 		if (chordvalue) { 
@@ -212,56 +213,63 @@ void loop() {
 		digitalWrite(LEDPIN, LOW);
 	}
 
-	if (button0.fallingEdge()) {
+	if (button_p.fallingEdge()) {
 		if (!pressed) {
+			Serial.println("pinky");
 			pressed=true;
 			presstime=millis();
 		}
 		buttonsheld++;
 		chordvalue += 1;
 	}
-	if (button1.fallingEdge()) {
+	if (button_r.fallingEdge()) {
 		if (!pressed) {
+			Serial.println("ring");
 			pressed=true;
 			presstime=millis();
 		}
 		buttonsheld++;
 		chordvalue += 2;
 	}
-	if (button2.fallingEdge()) {
+	if (button_m.fallingEdge()) {
 		if (!pressed) {
+			Serial.println("middle");
 			pressed=true;
 			presstime=millis();
 		}
 		buttonsheld++;
 		chordvalue += 4;
 	}
-	if (button3.fallingEdge()) {
+	if (button_i.fallingEdge()) {
 		if (!pressed) {
+			Serial.println("index");
 			pressed=true;
 			presstime=millis();
 		}
 		buttonsheld++;
 		chordvalue += 8;
 	}
-	if (button4.fallingEdge()) {
+	if (button_n.fallingEdge()) {
 		if (!pressed) {
+			Serial.println("near");
 			pressed=true;
 			presstime=millis();
 		}
 		buttonsheld++;
 		chordvalue += 16;
 	}
-	if (button5.fallingEdge()) {
+	if (button_c.fallingEdge()) {
 		if (!pressed) {
+			Serial.println("center");
 			pressed=true;
 			presstime=millis();
 		}
 		buttonsheld++;
 		chordvalue += 32;
 	}
-	if (button6.fallingEdge()) {
+	if (button_f.fallingEdge()) {
 		if (!pressed) {
+			Serial.println("far");
 			pressed=true;
 			presstime=millis();
 		}
@@ -269,25 +277,25 @@ void loop() {
 		chordvalue += 64;
 	}
 
-	if (button0.risingEdge()) {
+	if (button_p.risingEdge()) {
 		buttonsheld--;
 	}
-	if (button1.risingEdge()) {
+	if (button_r.risingEdge()) {
 		buttonsheld--;
 	}
-	if (button2.risingEdge()) {
+	if (button_m.risingEdge()) {
 		buttonsheld--;
 	}
-	if (button3.risingEdge()) {
+	if (button_i.risingEdge()) {
 		buttonsheld--;
 	}
-	if (button4.risingEdge()) {
+	if (button_n.risingEdge()) {
 		buttonsheld--;
 		}
-	if (button5.risingEdge()) {
+	if (button_c.risingEdge()) {
 		buttonsheld--;
 	}
-	if (button6.risingEdge()) {
+	if (button_f.risingEdge()) {
 		buttonsheld--;
 	}
 

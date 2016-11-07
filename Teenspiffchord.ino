@@ -9,13 +9,13 @@
 
 #define DEBOUNCE_TIMEOUT 10
 #define TYPETIME 500          // 500 for noooooobs
-#define BUTTON_F 4
+#define BUTTON_F 2
 #define BUTTON_C 3
-#define BUTTON_N 2
-#define BUTTON_I 14
-#define BUTTON_M 15
-#define BUTTON_R 16
-#define BUTTON_P 17
+#define BUTTON_N 4
+#define BUTTON_I 15
+#define BUTTON_M 16
+#define BUTTON_R 17
+#define BUTTON_P 18
 #define LEDPIN 13
 
 Bounce button_p = Bounce(BUTTON_P, DEBOUNCE_TIMEOUT);

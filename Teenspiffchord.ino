@@ -19,15 +19,15 @@
 #define DEBOUNCE_TIMEOUT 10
 
 // Time to wait before assuming the chord has been completely pressed.
-#define TYPETIME 50
+#define TYPETIME 100
 
 // Pins
-#define BUTTON_F 2
+#define BUTTON_F 4
 #define BUTTON_C 3
-#define BUTTON_N 4
-#define BUTTON_I 15
-#define BUTTON_M 16
-#define BUTTON_R 17
+#define BUTTON_N 5
+#define BUTTON_I 20
+#define BUTTON_M 21
+#define BUTTON_R 19
 #define BUTTON_P 18
 #define LEDPIN 13
 
@@ -43,6 +43,7 @@ int buttonsheld;
 int last_buttonsheld = 0;
 int currentmodifier;
 bool repeat_mode = false;
+uint32_t last_blink = 0;
 
 Bounce button_p = Bounce(BUTTON_P, DEBOUNCE_TIMEOUT);
 Bounce button_r = Bounce(BUTTON_R, DEBOUNCE_TIMEOUT);
@@ -52,8 +53,22 @@ Bounce button_n = Bounce(BUTTON_N, DEBOUNCE_TIMEOUT);
 Bounce button_c = Bounce(BUTTON_C, DEBOUNCE_TIMEOUT);
 Bounce button_f = Bounce(BUTTON_F, DEBOUNCE_TIMEOUT);
 
+void blink_every(uint32_t length_ms) {
+	uint8_t bit = digitalPinToBitMask(LEDPIN);
+	uint8_t port = digitalPinToPort(LEDPIN);
+	uint8_t pinstate = (*portOutputRegister(port) & bit) ? HIGH : LOW;
+	if (millis() > last_blink+(length_ms/4) && pinstate == LOW) {
+	    digitalWrite(LEDPIN, HIGH);
+	    last_blink = millis();
+	}
+	if (millis() > last_blink+length_ms && pinstate == HIGH) {
+	    digitalWrite(LEDPIN, LOW);
+	    last_blink = millis();
+	}
+}
 
-void debug(char*name) {
+
+void debug(String name) {
 #ifdef DEBUG
 	Serial.print(String(name));
 	Serial.print(": "+String(pressed));
@@ -64,6 +79,7 @@ void debug(char*name) {
 	Serial.println();
 #endif
 }
+
 
 /*
    Bypass checks if in repeat mode for rapid 
@@ -88,6 +104,7 @@ int getkey(int value, int keymap) {
 	return key;
 }
 
+
 void handle_shiftmode() {
     if (shiftmode) {
       Keyboard.set_modifier(currentmodifier);
@@ -96,6 +113,7 @@ void handle_shiftmode() {
       currentmodifier = 0;
     }
 }
+
 
 void macro(int key1, int key2, int key3, int key4, int key5, int key6) {
 	
@@ -125,21 +143,26 @@ void macro(int key1, int key2, int key3, int key4, int key5, int key6) {
     releasekeys();
 }
 
+
 void send_key(int key) {
 	macro(key, KEY__, KEY__, KEY__, KEY__, KEY__);
 }
+
 
 void macro(int key1, int key2) {
 	macro(key1, key2, KEY__, KEY__, KEY__, KEY__);
 }
 
+
 void macro(int key1, int key2, int key3) {
 	macro(key1, key2, key3, KEY__, KEY__, KEY__);
 }
 
+
 void macro(int key1, int key2, int key3, int key4) {
 	macro(key1, key2, key3, key4, KEY__, KEY__);
 }
+
 
 void macro(int key1, int key2, int key3, int key4, int key5) {
 	macro(key1, key2, key3, key4, key5, KEY__);
@@ -219,6 +242,7 @@ void processchord(int value) {
 	}
 }
 
+
 void releasekeys() {
 	Keyboard.set_modifier(0);
 	Keyboard.set_key1(0);
@@ -232,12 +256,9 @@ void releasekeys() {
 
 
 void setup() {
-
 	Serial.begin(9600);
 	pinMode(LEDPIN, OUTPUT);
-
 	pinMode(0, INPUT_PULLUP);
-
 	pinMode(BUTTON_F, INPUT_PULLUP);
 	pinMode(BUTTON_C, INPUT_PULLUP);
 	pinMode(BUTTON_N, INPUT_PULLUP);
@@ -249,6 +270,7 @@ void setup() {
 
 
 void loop() {
+	blink_every(4000);
 	button_p.update();
 	button_r.update();
 	button_m.update();
@@ -311,36 +333,43 @@ void loop() {
 	
 	// Start the timer for any new keypress.
 	if (button_p.fallingEdge()) {
+			Serial.print("P");
 			debug("+ pinky");
 			presstime=millis();
 	}
 
 	if (button_r.fallingEdge()) {
+			Serial.print("R");
 			debug("+ ring");
 			presstime=millis();
 	}
 
 	if (button_m.fallingEdge()) {
+			Serial.print("M");
 			debug("+ middle");
 			presstime=millis();
 	}
 
 	if (button_i.fallingEdge()) {
+			Serial.print("I");
 			debug("+ index");
 			presstime=millis();
 	}
 
 	if (button_n.fallingEdge()) {
+			Serial.print("N");
 			debug("+ near");
 			presstime=millis();
 	}
 
 	if (button_c.fallingEdge()) {
+			Serial.print("C");
 			debug("+ center");
 			presstime=millis();
 	}
 
 	if (button_f.fallingEdge()) {
+			Serial.print("F");
 			debug("+ far");
 			presstime=millis();
 	}
